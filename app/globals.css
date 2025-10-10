@@ -31,3 +31,17 @@ body {
     text-wrap: balance;
   }
 }
+
+html, body {
+  background-color: #000;
+  color: white;
+  font-family: 'Inter', sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #a855f7, #ec4899);
+  border-radius: 4px;
+}
