@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "FreeJam4u Sync Extension",
+  "description": "Auto-sync your video tab with JamRoom.",
+  "version": "3.0",
+  "permissions": ["activeTab", "tabs", "storage", "scripting", "webNavigation"],
+  "host_permissions": ["*://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://*.vimeo.com/*",
+        "*://*.spotify.com/*",
+        "*://*.tiktok.com/*"
+      ],
+      "js": ["contentScript.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "icon128.png"
+    }
+  }
+}
