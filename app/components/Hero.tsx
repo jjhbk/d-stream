@@ -1,6 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 import WalletCTA from "./WalletCTA";
+import RoomCreator from "./RoomCreator";
 
 export default function Hero() {
   return (
@@ -34,7 +35,7 @@ export default function Hero() {
           crypto and support creators directly.
         </p>
         <div className="mt-10">
-          <WalletCTA />
+          <RoomCreator />
         </div>
       </motion.div>
 
