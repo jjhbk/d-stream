@@ -7,6 +7,7 @@ import Duration from "../../components/Duration";
 import { useParams } from "next/navigation";
 import { ethers } from "ethers";
 import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 
 interface WSMessage {
   type: "join" | "media-change" | "playback" | "seek" | "volume" | "sync-state"; // 👈 new message type for playback sync
@@ -464,70 +465,101 @@ export default function JamPage() {
   //  🎨 RENDER UI
   // ============================================================
   return (
-    <main className="min-h-screen p-6 bg-gray-900 text-white flex flex-col items-center gap-6">
-      <h1 className="text-3xl font-bold">
-        🎵 {roomData?.room?.title || "Jam Room"} ({roomId})
-      </h1>
-      {roomData && (
-        <p className="text-gray-400 text-sm">
-          Created by:{" "}
-          <span className="text-blue-400">{roomData.room.creatorAddress}</span>
+    <main className="relative min-h-screen p-8 bg-gradient-to-b from-[#0a0014] via-[#12002c] to-[#080011] text-white flex flex-col items-center">
+      {/* Floating gradient glow background */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-[-10rem] left-[10%] w-[25rem] h-[25rem] bg-fuchsia-700/40 rounded-full blur-3xl opacity-50 animate-pulse" />
+        <div className="absolute bottom-[-8rem] right-[15%] w-[25rem] h-[25rem] bg-indigo-700/40 rounded-full blur-3xl opacity-40 animate-pulse" />
+      </div>
+
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="text-center mb-8"
+      >
+        <h1 className="text-5xl font-extrabold bg-gradient-to-r from-fuchsia-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(168,85,247,0.3)]">
+          🎵 {roomData?.room?.title || "DStream Jam Room"}
+        </h1>
+        <p className="mt-3 text-gray-400 text-sm">
+          Room ID: <span className="text-indigo-400 font-mono">{roomId}</span> ·
+          Created by{" "}
+          <span className="text-fuchsia-400">
+            {roomData?.room?.creatorAddress?.slice(0, 8)}...
+          </span>
         </p>
-      )}
+      </motion.div>
 
-      {/* Selector */}
+      {/* Playlist Management Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="w-full max-w-3xl bg-gray-900/70 backdrop-blur-xl rounded-2xl p-6 shadow-[0_0_40px_rgba(168,85,247,0.15)] mb-8 border border-gray-800"
+      >
+        <h2 className="text-2xl font-bold text-fuchsia-400 mb-4">
+          🎶 Manage Playlists
+        </h2>
 
-      <div className="flex flex-col gap-2 w-full max-w-md mb-4">
-        <label className="text-gray-300 font-semibold">
-          🎵 Select Playlist
-        </label>
-        <div className="bg-gray-800 p-4 rounded-xl flex flex-col gap-2 w-full max-w-md mb-6">
-          <h2 className="text-xl font-semibold text-white">
-            🎶 Create Playlist
-          </h2>
+        {/* Create Playlist */}
+        <div className="bg-gray-800/70 p-5 rounded-xl mb-5">
+          <h3 className="text-xl font-semibold text-white mb-3">
+            ➕ Create Playlist
+          </h3>
           <input
             type="text"
             placeholder="Playlist title"
             value={playlistTitle}
             onChange={(e) => setPlaylistTitle(e.target.value)}
-            className="p-2 rounded bg-gray-700 text-white"
+            className="p-3 rounded bg-gray-700 text-white w-full mb-3 focus:ring-2 focus:ring-fuchsia-500"
           />
           <textarea
             placeholder="Description (optional)"
             value={playlistDesc}
             onChange={(e) => setPlaylistDesc(e.target.value)}
-            className="p-2 rounded bg-gray-700 text-white"
+            className="p-3 rounded bg-gray-700 text-white w-full mb-3 focus:ring-2 focus:ring-fuchsia-500"
           />
           <button
             onClick={createPlaylist}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white mt-2"
+            className="bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 px-5 py-2.5 rounded-lg text-white font-semibold transition"
           >
-            ➕ Create Playlist
+            Create Playlist
           </button>
         </div>
-        <select
-          className="bg-gray-800 p-3 rounded text-white border border-gray-700"
-          onChange={(e) => {
-            const selected = playlists.find((p) => p._id === e.target.value);
-            setActivePlaylist(selected || null);
-          }}
-        >
-          <option value="">Select a playlist...</option>
-          {playlists.map((p) => (
-            <option key={p._id} value={p._id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-      </div>
+
+        {/* Playlist Selector */}
+        <div>
+          <label className="block mb-2 text-gray-300 font-semibold">
+            🎧 Select Playlist
+          </label>
+          <select
+            className="bg-gray-800 p-3 rounded-lg w-full border border-gray-700 focus:ring-2 focus:ring-indigo-500"
+            onChange={(e) => {
+              const selected = playlists.find((p) => p._id === e.target.value);
+              setActivePlaylist(selected || null);
+            }}
+          >
+            <option value="">Select a playlist...</option>
+            {playlists.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      </motion.div>
 
       {/* Player */}
-      <div className="w-full max-w-4xl bg-gray-800 rounded-xl p-6 shadow-lg flex flex-col gap-6">
-        <div
-          className="player-wrapper rounded-lg overflow-hidden bg-black"
-          style={{ aspectRatio: "16/9", width: "100%" }}
-        >
-          {state.src ? (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.4 }}
+        className="w-full max-w-5xl bg-gray-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-[0_0_50px_rgba(88,28,135,0.3)] flex flex-col gap-6 border border-gray-800"
+      >
+        {/* Player */}
+        <div className="rounded-lg overflow-hidden bg-black relative shadow-lg border border-gray-700">
+          {src ? (
             <ReactPlayer
               ref={setPlayerRefCallback}
               className="react-player"
@@ -581,38 +613,40 @@ export default function JamPage() {
               // onDurationChange={handleDurationChange}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              No media loaded
+            <div className="w-full h-[400px] flex items-center justify-center text-gray-500">
+              🎬 Load or select a track to start streaming
             </div>
           )}
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap gap-3 justify-center items-center mt-2">
+        <div className="flex flex-wrap gap-3 justify-center items-center mt-4">
           <button
-            className="px-4 py-2 bg-indigo-600 rounded"
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold"
             onClick={playing ? handlePause : handlePlay}
           >
-            {playing ? "Pause" : "Play"}
+            {playing ? "⏸ Pause" : "▶ Play"}
           </button>
           <button
-            className="px-4 py-2 bg-green-600 rounded"
+            className="px-5 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold"
             onClick={requestFullscreen}
           >
-            Fullscreen
+            ⛶ Fullscreen
           </button>
           <button
-            className={`px-4 py-2 rounded ${
-              muted ? "bg-gray-500" : "bg-yellow-500"
+            className={`px-5 py-2 rounded-lg font-semibold ${
+              muted ? "bg-gray-500" : "bg-yellow-500 hover:bg-yellow-600"
             }`}
             onClick={() => setState((p) => ({ ...p, muted: !p.muted }))}
           >
-            {muted ? "Unmute" : "Mute"}
+            {muted ? "🔈 Unmute" : "🔇 Mute"}
           </button>
         </div>
-        <div className="flex gap-3 justify-center mt-4">
+
+        {/* Next / Prev */}
+        <div className="flex gap-4 justify-center mt-2">
           <button
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
             disabled={!activePlaylist || currentTrackIndex === 0}
             onClick={() => {
               const prevIndex = Math.max(currentTrackIndex - 1, 0);
@@ -623,9 +657,8 @@ export default function JamPage() {
           >
             ⏮ Previous
           </button>
-
           <button
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
             disabled={
               !activePlaylist ||
               currentTrackIndex >= (activePlaylist?.tracks?.length || 1) - 1
@@ -642,8 +675,8 @@ export default function JamPage() {
         </div>
 
         {/* Seek & Volume */}
-        <div className="flex flex-col gap-2 mt-2 w-full">
-          <label className="text-sm text-gray-300">Seek</label>
+        <div className="flex flex-col gap-3 mt-4">
+          <label className="text-sm text-gray-300">⏱ Seek</label>
           <input
             type="range"
             min={0}
@@ -651,8 +684,9 @@ export default function JamPage() {
             step="any"
             value={played}
             onChange={handleSeekChange}
+            className="accent-fuchsia-500"
           />
-          <label className="text-sm text-gray-300 mt-2">Volume</label>
+          <label className="text-sm text-gray-300 mt-2">🔊 Volume</label>
           <input
             type="range"
             min={0}
@@ -660,49 +694,58 @@ export default function JamPage() {
             step="any"
             value={volume}
             onChange={handleVolumeChange}
+            className="accent-indigo-500"
           />
         </div>
 
         {/* Add Track */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-3 mt-4">
           <input
             ref={urlInputRef}
             type="text"
-            placeholder="Enter track URL or title"
+            placeholder="🎵 Enter track URL or title"
             value={newTrack}
             onChange={(e) => setNewTrack(e.target.value)}
-            className="flex-1 px-3 py-2 rounded bg-gray-700 text-white"
+            className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 focus:ring-2 focus:ring-purple-500"
             onKeyDown={(e) => e.key === "Enter" && addTrack()}
           />
-          <button className="px-4 py-2 bg-blue-600 rounded" onClick={addTrack}>
-            Add
+          <button
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold"
+            onClick={addTrack}
+          >
+            ➕ Add
           </button>
         </div>
 
-        <p className="text-sm text-gray-400">
+        {/* Host/Participant Note */}
+        <p className="text-sm text-gray-400 text-center mt-3">
           {userAddress?.toLowerCase() ===
           roomData?.room?.creatorAddress?.toLowerCase()
-            ? "🎧 You are the host (playback controller)"
-            : "👥 You are a participant (synced listener)"}
+            ? "🎧 You are the host (controller)"
+            : "👥 You are a listener (auto-synced)"}
         </p>
 
         {/* Playlist */}
-        <div className="mt-6">
-          <h2 className="text-lg font-semibold mb-3">🎧 Playlist</h2>
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold text-fuchsia-400 mb-3">
+            🎶 Current Playlist
+          </h2>
           {activePlaylist?.tracks?.length ? (
             <ul className="space-y-2">
-              {activePlaylist.tracks.map((track: any) => (
+              {activePlaylist.tracks.map((track: any, i: number) => (
                 <li
                   key={track._id}
-                  className={`p-2 rounded ${
-                    track.playedAt ? "bg-gray-700" : "bg-gray-600"
-                  } flex justify-between items-center`}
+                  className={`p-3 rounded-lg flex justify-between items-center ${
+                    i === currentTrackIndex
+                      ? "bg-fuchsia-700/30 border border-fuchsia-600"
+                      : "bg-gray-700/50"
+                  } transition`}
                 >
                   <button
-                    className="text-blue-400 underline text-left"
+                    className="text-indigo-400 hover:underline text-left"
                     onClick={() => loadMedia(track.url || track.title)}
                   >
-                    {track.title}
+                    {i + 1}. {track.title}
                   </button>
                   {track.playedAt && (
                     <span className="text-sm text-gray-400">✔ Played</span>
@@ -711,16 +754,16 @@ export default function JamPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-gray-400 text-sm">No tracks yet.</p>
+            <p className="text-gray-500 text-sm">No tracks yet.</p>
           )}
         </div>
 
         {/* Duration */}
-        <div className="text-center mt-2 text-sm text-gray-300">
+        <div className="text-center mt-4 text-sm text-gray-300">
           <Duration seconds={state.duration * state.played || 0} /> /{" "}
           <Duration seconds={state.duration || 0} />
         </div>
-      </div>
+      </motion.div>
     </main>
   );
 }
