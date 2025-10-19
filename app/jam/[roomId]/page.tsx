@@ -72,10 +72,15 @@ export default function JamPage() {
 
   // --- Local state ---
   const [roomData, setRoomData] = useState<RoomData | null>(null);
+  const [playlistTitle, setPlaylistTitle] = useState("");
+  const [playlistDesc, setPlaylistDesc] = useState("");
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [newTrack, setNewTrack] = useState("");
   const [state, setState] = useState<PlayerState>(initialState);
   const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [activePlaylist, setActivePlaylist] = useState<any | null>(null);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
 
   const {
     src,
@@ -101,9 +106,19 @@ export default function JamPage() {
     try {
       const res = await fetch(`${API_URL}/api/rooms/${roomId}`);
       if (!res.ok) throw new Error("Room not found");
+
       const data = await res.json();
+
       setRoomData(data);
-      setPlaylist(data.tracks || []);
+      setPlaylists(data.playlists || []); // ✅ all playlists
+
+      // If a playlist is selected, refresh its track list too
+      if (activePlaylist?._id) {
+        const refreshed = data.playlists.find(
+          (p) => p._id === activePlaylist._id
+        );
+        setActivePlaylist(refreshed || null);
+      }
     } catch (err) {
       console.error("Error loading room:", err);
     }
@@ -356,35 +371,92 @@ export default function JamPage() {
     };
     connectWallet();
   }, []);
-  // ============================================================
-  //  🎧 PLAYLIST MANAGEMENT
-  // ============================================================
-  const addTrack = async () => {
-    if (!newTrack.trim()) return alert("Enter a valid URL or track name");
+
+  const fetchPlaylists = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/rooms/${roomId}/playlists`);
+      const data = await res.json();
+      setPlaylists(data.playlists || []);
+    } catch (err) {
+      console.error("Error loading playlists:", err);
+    }
+  };
+  useEffect(() => {
+    fetchPlaylists();
+  }, [roomId]);
+
+  const createPlaylist = async () => {
+    if (!playlistTitle.trim()) return alert("Please enter a playlist name.");
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
 
-      const res = await fetch(`${API_URL}/api/rooms/${roomId}/tracks`, {
+      const res = await fetch(`${API_URL}/api/rooms/${roomId}/playlists`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: newTrack,
-          url: newTrack,
-          addedBy: address,
+          title: playlistTitle.trim(),
+          description: playlistDesc.trim(),
+          address,
         }),
       });
 
       if (res.ok) {
-        setNewTrack("");
-        fetchRoom();
+        setPlaylistTitle("");
+        setPlaylistDesc("");
+        fetchPlaylists(); // refresh playlists list
+        alert("✅ Playlist created successfully!");
       } else {
-        alert("Error adding track");
+        alert("Error creating playlist.");
+      }
+    } catch (err) {
+      console.error("Playlist creation error:", err);
+    }
+  };
+
+  // ============================================================
+  //  🎧 PLAYLIST MANAGEMENT
+  // ============================================================
+  const addTrack = async () => {
+    if (!newTrack.trim()) return alert("Enter a valid URL or track name");
+
+    if (!activePlaylist?._id) {
+      return alert("Please select or create a playlist first!");
+    }
+
+    try {
+      // 🔹 Get user wallet
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+
+      // 🔹 Add track to selected playlist
+      const res = await fetch(
+        `${API_URL}/api/rooms/${roomId}/playlists/${activePlaylist._id}/tracks`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: newTrack.trim(),
+            url: newTrack.trim(),
+            addedBy: address,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        setNewTrack("");
+        fetchRoom(); // refresh playlist list + tracks
+        alert(`✅ Added to playlist: ${activePlaylist.title}`);
+      } else {
+        const errData = await res.json();
+        alert("❌ Error adding track: " + (errData.error || "Unknown"));
       }
     } catch (err) {
       console.error("Add track error:", err);
+      alert("Error connecting to wallet or server.");
     }
   };
 
@@ -402,6 +474,52 @@ export default function JamPage() {
           <span className="text-blue-400">{roomData.room.creatorAddress}</span>
         </p>
       )}
+
+      {/* Selector */}
+
+      <div className="flex flex-col gap-2 w-full max-w-md mb-4">
+        <label className="text-gray-300 font-semibold">
+          🎵 Select Playlist
+        </label>
+        <div className="bg-gray-800 p-4 rounded-xl flex flex-col gap-2 w-full max-w-md mb-6">
+          <h2 className="text-xl font-semibold text-white">
+            🎶 Create Playlist
+          </h2>
+          <input
+            type="text"
+            placeholder="Playlist title"
+            value={playlistTitle}
+            onChange={(e) => setPlaylistTitle(e.target.value)}
+            className="p-2 rounded bg-gray-700 text-white"
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={playlistDesc}
+            onChange={(e) => setPlaylistDesc(e.target.value)}
+            className="p-2 rounded bg-gray-700 text-white"
+          />
+          <button
+            onClick={createPlaylist}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white mt-2"
+          >
+            ➕ Create Playlist
+          </button>
+        </div>
+        <select
+          className="bg-gray-800 p-3 rounded text-white border border-gray-700"
+          onChange={(e) => {
+            const selected = playlists.find((p) => p._id === e.target.value);
+            setActivePlaylist(selected || null);
+          }}
+        >
+          <option value="">Select a playlist...</option>
+          {playlists.map((p) => (
+            <option key={p._id} value={p._id}>
+              {p.title}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Player */}
       <div className="w-full max-w-4xl bg-gray-800 rounded-xl p-6 shadow-lg flex flex-col gap-6">
@@ -492,6 +610,36 @@ export default function JamPage() {
             {muted ? "Unmute" : "Mute"}
           </button>
         </div>
+        <div className="flex gap-3 justify-center mt-4">
+          <button
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded"
+            disabled={!activePlaylist || currentTrackIndex === 0}
+            onClick={() => {
+              const prevIndex = Math.max(currentTrackIndex - 1, 0);
+              setCurrentTrackIndex(prevIndex);
+              const track = activePlaylist.tracks[prevIndex];
+              loadMedia(track.url, true, true);
+            }}
+          >
+            ⏮ Previous
+          </button>
+
+          <button
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded"
+            disabled={
+              !activePlaylist ||
+              currentTrackIndex >= (activePlaylist?.tracks?.length || 1) - 1
+            }
+            onClick={() => {
+              const nextIndex = currentTrackIndex + 1;
+              setCurrentTrackIndex(nextIndex);
+              const track = activePlaylist.tracks[nextIndex];
+              loadMedia(track.url, true, true);
+            }}
+          >
+            ⏭ Next
+          </button>
+        </div>
 
         {/* Seek & Volume */}
         <div className="flex flex-col gap-2 mt-2 w-full">
@@ -541,11 +689,9 @@ export default function JamPage() {
         {/* Playlist */}
         <div className="mt-6">
           <h2 className="text-lg font-semibold mb-3">🎧 Playlist</h2>
-          {playlist.length === 0 ? (
-            <p className="text-gray-400 text-sm">No tracks yet.</p>
-          ) : (
+          {activePlaylist?.tracks?.length ? (
             <ul className="space-y-2">
-              {playlist.map((track) => (
+              {activePlaylist.tracks.map((track: any) => (
                 <li
                   key={track._id}
                   className={`p-2 rounded ${
@@ -564,6 +710,8 @@ export default function JamPage() {
                 </li>
               ))}
             </ul>
+          ) : (
+            <p className="text-gray-400 text-sm">No tracks yet.</p>
           )}
         </div>
 

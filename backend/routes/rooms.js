@@ -1,67 +1,56 @@
 import express from "express";
 import Room from "../models/Room.js";
-import Track from "../models/Track.js";
+import Playlist from "../models/Playlist.js";
 
 const router = express.Router();
 
-// Create a new room
+/**
+ * 🎵 Create a new room
+ */
 router.post("/", async (req, res) => {
   try {
-    const { roomId, creatorAddress, title, description } = req.body;
-    const room = await Room.create({
+    const { roomId, title, description, creatorAddress } = req.body;
+    if (!roomId || !creatorAddress) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    let room = await Room.findOne({ roomId });
+    if (room) return res.json({ success: true, room });
+
+    room = await Room.create({
       roomId,
-      creatorAddress,
       title,
       description,
+      creatorAddress,
     });
-    res.json(room);
+
+    res.json({ success: true, room });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create room" });
+    console.error("❌ Error creating room:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// Fetch all rooms
-router.get("/", async (req, res) => {
-  const rooms = await Room.find().sort({ createdAt: -1 });
-  res.json(rooms);
-});
-
-// Fetch a specific room by roomId
+/**
+ * 📦 Get room details + playlists
+ */
 router.get("/:roomId", async (req, res) => {
-  const room = await Room.findOne({ roomId: req.params.roomId });
-  if (!room) return res.status(404).json({ error: "Room not found" });
+  try {
+    const room = await Room.findOne({ roomId: req.params.roomId });
+    if (!room) return res.status(404).json({ error: "Room not found" });
 
-  const tracks = await Track.find({ roomId: req.params.roomId }).sort({
-    createdAt: 1,
-  });
-  res.json({ room, tracks });
+    const playlists = await Playlist.find({ roomId: req.params.roomId });
+    res.json({ success: true, room, playlists });
+  } catch (err) {
+    console.error("❌ Error fetching room:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// Add a track to a room (by creator or participant)
-router.post("/:roomId/tracks", async (req, res) => {
-  const { title, url, addedBy } = req.body;
-  const track = await Track.create({
-    roomId: req.params.roomId,
-    title,
-    url,
-    addedBy,
-  });
-  res.json(track);
-});
-
-// Mark track as played (for history)
-router.post("/:roomId/played", async (req, res) => {
-  const { url } = req.body;
-  const track = await Track.findOneAndUpdate(
-    { roomId: req.params.roomId, url },
-    { playedAt: new Date() },
-    { new: true }
-  );
-  res.json(track);
-});
-
-app.post("/api/rooms/:roomId/seek", async (req, res) => {
+/**
+ * ⏩ Update current seek time (only creator)
+ */
+router.post("/:roomId/seek", async (req, res) => {
   try {
     const { time, address } = req.body;
     if (typeof time !== "number" || !address)
@@ -70,20 +59,104 @@ app.post("/api/rooms/:roomId/seek", async (req, res) => {
     const room = await Room.findOne({ roomId: req.params.roomId });
     if (!room) return res.status(404).json({ error: "Room not found" });
 
-    // 🔒 Only the creator can update the seek position
     if (room.creatorAddress.toLowerCase() !== address.toLowerCase()) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    await Room.updateOne(
-      { roomId: req.params.roomId },
-      { currentSeek: time, lastUpdated: new Date() }
+    room.currentSeek = time;
+    await room.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Seek update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * 🎧 Create a playlist
+ */
+router.post("/:roomId/playlists", async (req, res) => {
+  try {
+    const { title, description, address } = req.body;
+    if (!title || !address)
+      return res.status(400).json({ error: "Missing required fields" });
+
+    const playlist = await Playlist.create({
+      roomId: req.params.roomId,
+      title,
+      description,
+      createdBy: address,
+      tracks: [],
+    });
+
+    res.json({ success: true, playlist });
+  } catch (err) {
+    console.error("❌ Error creating playlist:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * 📜 Get all playlists for a room
+ */
+router.get("/:roomId/playlists", async (req, res) => {
+  try {
+    const playlists = await Playlist.find({ roomId: req.params.roomId });
+    res.json({ success: true, playlists });
+  } catch (err) {
+    console.error("❌ Error fetching playlists:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * ➕ Add track to playlist
+ */
+router.post("/:roomId/playlists/:playlistId/tracks", async (req, res) => {
+  try {
+    const { title, url, addedBy } = req.body;
+    if (!title || !url || !addedBy)
+      return res.status(400).json({ error: "Invalid data" });
+
+    const playlist = await Playlist.findById(req.params.playlistId);
+    if (!playlist) return res.status(404).json({ error: "Playlist not found" });
+
+    playlist.tracks.push({ title, url, addedBy });
+    await playlist.save();
+
+    res.json({ success: true, playlist });
+  } catch (err) {
+    console.error("❌ Error adding track:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * ✔ Mark track as played (only creator)
+ */
+router.post("/:roomId/played", async (req, res) => {
+  try {
+    const { url, address } = req.body;
+    if (!url || !address)
+      return res.status(400).json({ error: "Missing data" });
+
+    const room = await Room.findOne({ roomId: req.params.roomId });
+    if (!room) return res.status(404).json({ error: "Room not found" });
+
+    if (room.creatorAddress.toLowerCase() !== address.toLowerCase()) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    await Playlist.updateOne(
+      { roomId: req.params.roomId, "tracks.url": url },
+      { $set: { "tracks.$.playedAt": new Date() } }
     );
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Seek update error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("❌ Error marking as played:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

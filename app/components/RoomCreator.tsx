@@ -63,9 +63,9 @@ export default function RoomCreator({ apiUrl }: RoomCreatorProps) {
 
       const data = await response.json();
       const url = `${window.location.origin}/jam/${encodeURIComponent(
-        data.roomId
+        data.room.roomId
       )}`;
-      setRoomId(data.roomId);
+      setRoomId(data.room.roomId);
       setShareUrl(url);
 
       alert("✅ Room created successfully!");
