@@ -4,6 +4,10 @@ import HowItWorks from "./components/HowItWorks";
 import FAQ from "./components/FAQ";
 import WalletCTA from "./components/WalletCTA";
 import RoomCreator from "./components/RoomCreator";
+import {
+  NotificationProvider,
+  TransactionPopupProvider,
+} from "@blockscout/app-sdk";
 
 export default function Page() {
   return (
@@ -12,8 +16,9 @@ export default function Page() {
       <Features />
       <HowItWorks />
       <FAQ />
+
       <footer className="mt-16 text-center text-gray-500 py-8 border-t border-gray-700">
-        © 2025 StreamFi — Decentralized, censorship-free streaming.
+        © 2025 DStream — Decentralized, censorship-free streaming.
       </footer>
     </main>
   );

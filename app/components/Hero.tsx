@@ -4,8 +4,24 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
+import {
+  NotificationProvider,
+  TransactionPopupProvider,
+  useNotification,
+  useTransactionPopup,
+} from "@blockscout/app-sdk";
 
-export default function HeroSection() {
+const PYUSD_SEPOLIA = "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9"; // your test PYUSD address
+const PLATFORM_ADDRESS = "0x81011A2d575f4f9AB78A5636F850cA1ac5a93b3C"; // replace with your receiver wallet
+const PAYMENT_AMOUNT = "0.10";
+const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111 in hex
+
+const erc20Abi = [
+  "function decimals() view returns (uint8)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+];
+
+function HeroContent() {
   const [roomId, setRoomId] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -13,6 +29,9 @@ export default function HeroSection() {
 
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "https://freejam4u.onrender.com";
+
+  const { openTxToast } = useNotification();
+  const { openPopup } = useTransactionPopup();
 
   const generateRoomId = (length = 10) => {
     const chars =
@@ -28,6 +47,42 @@ export default function HeroSection() {
     alert("Room URL copied to clipboard!");
   };
 
+  // 👉 Function to switch/add Sepolia automatically
+  const ensureSepoliaNetwork = async () => {
+    if (!window.ethereum) throw new Error("MetaMask not found");
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: SEPOLIA_CHAIN_ID }],
+      });
+      console.log("✅ Switched to Sepolia network");
+    } catch (switchError: any) {
+      // If network not found, add it
+      if (switchError.code === 4902) {
+        console.log("🪄 Adding Sepolia network...");
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: SEPOLIA_CHAIN_ID,
+              chainName: "Sepolia Test Network",
+              nativeCurrency: {
+                name: "Ethereum",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: ["https://rpc.sepolia.org"],
+              blockExplorerUrls: ["https://eth-sepolia.blockscout.com"],
+            },
+          ],
+        });
+      } else {
+        throw switchError;
+      }
+    }
+  };
+
   const handleCreateRoom = async () => {
     try {
       setIsCreating(true);
@@ -38,10 +93,23 @@ export default function HeroSection() {
         return;
       }
 
+      // Step 0: Ensure Sepolia network is selected
+      await ensureSepoliaNetwork();
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
 
+      // Step 1: Pay 10 cents in PYUSD
+      const contract = new ethers.Contract(PYUSD_SEPOLIA, erc20Abi, signer);
+      const decimals = await contract.decimals();
+      const amount = ethers.parseUnits(PAYMENT_AMOUNT, decimals);
+
+      const tx = await contract.transfer(PLATFORM_ADDRESS, amount);
+      await openTxToast("11155111", tx.hash);
+      await tx.wait();
+
+      // Step 2: Create Room after payment confirmation
       const newRoomId = generateRoomId();
       const title =
         prompt("Enter a title for your stream:", "My DStream Room") ||
@@ -54,6 +122,7 @@ export default function HeroSection() {
           roomId: newRoomId,
           creatorAddress: address,
           title,
+          paymentTxHash: tx.hash,
         }),
       });
 
@@ -81,9 +150,16 @@ export default function HeroSection() {
     router.push(`/jam/${encodeURIComponent(roomId.trim())}`);
   };
 
+  const viewHistory = () => {
+    openPopup({
+      chainId: "11155111",
+      address: PLATFORM_ADDRESS,
+    });
+  };
+
   return (
     <section className="relative h-[100vh] flex flex-col justify-center items-center text-center overflow-hidden bg-black">
-      {/* 🔮 Cinematic Video Background */}
+      {/* 🎥 Background */}
       <div className="absolute inset-0">
         <video
           autoPlay
@@ -97,12 +173,11 @@ export default function HeroSection() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/90" />
       </div>
 
-      {/* 🌈 Ambient Blurs */}
+      {/* 🌈 Ambient Light Effects */}
       <div className="absolute top-[-8rem] left-[10%] w-[25rem] h-[25rem] bg-fuchsia-600/40 rounded-full blur-3xl opacity-40 animate-pulse" />
       <div className="absolute bottom-[-8rem] right-[10%] w-[25rem] h-[25rem] bg-indigo-600/40 rounded-full blur-3xl opacity-40 animate-pulse" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.05)_0%,_transparent_80%)]" />
 
-      {/* 🎬 Hero Text */}
+      {/* Content */}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
@@ -115,10 +190,10 @@ export default function HeroSection() {
 
         <p className="mt-6 text-gray-300 text-lg md:text-2xl max-w-2xl mx-auto leading-relaxed backdrop-blur-sm bg-black/10 px-4 py-2 rounded-xl shadow-inner">
           The world’s first decentralized streaming platform — create rooms,
-          stream music or movies, and own your content with crypto.
+          stream, and support creators with on-chain payments.
         </p>
 
-        {/* 🧱 Embedded Room Creator (replaces FreeJam4U card) */}
+        {/* Embedded Room Creator */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -129,7 +204,8 @@ export default function HeroSection() {
             🎥 Start Streaming
           </h2>
           <p className="text-gray-400 mb-6 text-center">
-            Join an existing stream or create your own decentralized jam room.
+            Pay <span className="text-green-400">$0.10 PYUSD</span> to start a
+            decentralized jam room on Sepolia.
           </p>
 
           {/* Join */}
@@ -158,7 +234,7 @@ export default function HeroSection() {
                 isCreating ? "bg-gray-600" : "bg-green-600 hover:bg-green-700"
               }`}
             >
-              {isCreating ? "Creating..." : "Create New Room"}
+              {isCreating ? "Processing..." : "Create Room for $0.10"}
             </button>
 
             {shareUrl && (
@@ -179,29 +255,27 @@ export default function HeroSection() {
           )}
 
           <p className="mt-6 text-gray-500 text-sm text-center">
-            Rooms are decentralized and persisted — invite your friends or fans
-            to join.
+            Each stream is verifiable on-chain. All payments are transparent via{" "}
+            <button
+              onClick={viewHistory}
+              className="text-blue-400 underline hover:text-blue-500"
+            >
+              Blockscout
+            </button>
+            .
           </p>
         </motion.div>
       </motion.div>
-
-      {/* ✨ Floating Motion Lights */}
-      <motion.div
-        className="absolute top-[20%] left-[15%] w-40 h-40 bg-purple-500/20 rounded-full blur-3xl"
-        animate={{
-          y: [0, 25, 0],
-          scale: [1, 1.05, 1],
-          transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-        }}
-      />
-      <motion.div
-        className="absolute bottom-[10%] right-[15%] w-52 h-52 bg-pink-500/20 rounded-full blur-3xl"
-        animate={{
-          y: [0, -20, 0],
-          scale: [1, 1.1, 1],
-          transition: { duration: 7, repeat: Infinity, ease: "easeInOut" },
-        }}
-      />
     </section>
+  );
+}
+
+export default function HeroSection() {
+  return (
+    <NotificationProvider>
+      <TransactionPopupProvider>
+        <HeroContent />
+      </TransactionPopupProvider>
+    </NotificationProvider>
   );
 }

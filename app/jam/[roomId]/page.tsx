@@ -8,6 +8,12 @@ import { useParams } from "next/navigation";
 import { ethers } from "ethers";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import TipCreator from "@/app/components/TipCreator";
+import TippingDashboard from "@/app/components/TippingDashboard";
+import {
+  NotificationProvider,
+  TransactionPopupProvider,
+} from "@blockscout/app-sdk";
 
 interface WSMessage {
   type: "join" | "media-change" | "playback" | "seek" | "volume" | "sync-state"; // 👈 new message type for playback sync
@@ -82,7 +88,9 @@ export default function JamPage() {
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [activePlaylist, setActivePlaylist] = useState<any | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
-
+  const [tipAmount, setTipAmount] = useState("");
+  const [tipHistory, setTipHistory] = useState([]);
+  const [totalTips, setTotalTips] = useState("");
   const {
     src,
     playing,
@@ -460,6 +468,54 @@ export default function JamPage() {
       alert("Error connecting to wallet or server.");
     }
   };
+  const handleTip = async () => {
+    if (!window.ethereum) return alert("Please install MetaMask");
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const from = await signer.getAddress();
+
+    const PYUSD = "0x81011A2d575f4f9AB78A5636F850cA1ac5a93b3C";
+    const creator = roomData?.room?.creatorAddress;
+
+    if (!creator) return alert("Creator address missing");
+
+    const erc20Abi = [
+      "function decimals() view returns (uint8)",
+      "function transfer(address to, uint256 amount) returns (bool)",
+    ];
+
+    const contract = new ethers.Contract(PYUSD, erc20Abi, signer);
+
+    const decimals = await contract.decimals();
+    const amount = ethers.parseUnits(tipAmount, decimals);
+
+    const tx = await contract.transfer(creator, amount);
+    await tx.wait();
+
+    alert(`🎉 Tip sent! Tx: ${tx.hash}`);
+  };
+
+  const fetchTips = async () => {
+    const creator = roomData?.room?.creatorAddress;
+    const PYUSD = "0x6c3ea9036406852006290770BEdFcAbA0e23a0e8";
+
+    const res = await fetch(
+      `https://eth.blockscout.com/api/v2/addresses/${creator}/token-transfers?token=${PYUSD}`
+    );
+    const data = await res.json();
+
+    const incoming = data.items.filter(
+      (t: any) => t.to.toLowerCase() === creator?.toLowerCase()
+    );
+
+    const total = incoming.reduce(
+      (sum: any, tx: any) => sum + parseFloat(tx.value),
+      0
+    );
+    setTipHistory(incoming);
+    setTotalTips(total.toFixed(2));
+  };
 
   // ============================================================
   //  🎨 RENDER UI
@@ -490,7 +546,13 @@ export default function JamPage() {
           </span>
         </p>
       </motion.div>
-
+      {/* Host/Participant Note */}
+      <p className="text-sm text-gray-400 text-center mt-3">
+        {userAddress?.toLowerCase() ===
+        roomData?.room?.creatorAddress?.toLowerCase()
+          ? "🎧 You are the host (controller)"
+          : "👥 You are a listener (auto-synced)"}
+      </p>
       {/* Playlist Management Panel */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -764,6 +826,16 @@ export default function JamPage() {
           <Duration seconds={state.duration || 0} />
         </div>
       </motion.div>
+      <NotificationProvider>
+        <TransactionPopupProvider>
+          <TipCreator creatorAddress={roomData?.room?.creatorAddress} />
+          <TippingDashboard
+            creatorAddress={roomData?.room?.creatorAddress}
+            tokenAddress="0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9"
+            network="sepolia" // PYUSD mock
+          />
+        </TransactionPopupProvider>
+      </NotificationProvider>
     </main>
   );
 }

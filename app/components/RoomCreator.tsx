@@ -1,155 +1,158 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { ethers } from "ethers";
+import {
+  NotificationProvider,
+  TransactionPopupProvider,
+  useNotification,
+  useTransactionPopup,
+} from "@blockscout/app-sdk";
 
-interface RoomCreatorProps {
-  apiUrl?: string; // optional prop if backend URL differs
-}
+const PYUSD_SEPOLIA = "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9"; // replace with your test token address
+const PLATFORM_ADDRESS = "0x4eF27B6eb11b645139596a0b5E27e4B1662b0EC5"; // where payments go
+const PAYMENT_AMOUNT = "0.10";
+const SEPOLIA_CHAIN_ID = "11155111"; // Chain ID for Sepolia
 
-export default function RoomCreator({ apiUrl }: RoomCreatorProps) {
-  const [roomId, setRoomId] = useState("");
-  const [shareUrl, setShareUrl] = useState("");
+const erc20Abi = [
+  "function decimals() view returns (uint8)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+];
+
+function CreateRoomComponent() {
   const [isCreating, setIsCreating] = useState(false);
-  const router = useRouter();
-  const API_URL =
-    apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
 
-  // Generate random alphanumeric ID
+  const { openTxToast } = useNotification();
+  const { openPopup } = useTransactionPopup();
+
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "https://freejam4u.onrender.com";
+
   const generateRoomId = (length = 12) => {
     const chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    return Array.from(
+      { length },
+      () => chars[Math.floor(Math.random() * chars.length)]
+    ).join("");
   };
 
-  // Create a room via backend
   const handleCreateRoom = async () => {
     try {
+      if (!window.ethereum) return alert("Please install MetaMask");
       setIsCreating(true);
 
-      if (!window.ethereum) {
-        alert("Please install MetaMask");
-        setIsCreating(false);
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+
+      // Ensure user is on Sepolia
+      if (network.chainId !== BigInt(SEPOLIA_CHAIN_ID)) {
+        alert("Please switch to Sepolia network in MetaMask!");
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const address = await signer.getAddress();
+      const userAddress = await signer.getAddress();
+      const contract = new ethers.Contract(PYUSD_SEPOLIA, erc20Abi, signer);
 
+      const decimals = await contract.decimals();
+      const amount = ethers.parseUnits(PAYMENT_AMOUNT, decimals);
+
+      // --- Step 1: Payment Transaction ---
+      const tx = await contract.transfer(PLATFORM_ADDRESS, amount);
+      setTxHash(tx.hash);
+
+      // Show live toast via Blockscout SDK
+      await openTxToast(SEPOLIA_CHAIN_ID, tx.hash);
+
+      await tx.wait();
+      console.log(`✅ Payment complete: ${tx.hash}`);
+
+      // --- Step 2: Create Room ---
       const newRoomId = generateRoomId();
       const title =
-        prompt("Enter a title for your room:", "My Jam Room") ||
-        "Untitled Room";
+        prompt("Enter room title:", "My DStream Jam Room") || "Untitled Room";
 
-      const response = await fetch(`${API_URL}/api/rooms`, {
+      const res = await fetch(`${API_URL}/api/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomId: newRoomId,
-          creatorAddress: address,
+          creatorAddress: userAddress,
           title,
+          paymentTxHash: tx.hash,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create room");
-      }
-
-      const data = await response.json();
-      const url = `${window.location.origin}/jam/${encodeURIComponent(
-        data.room.roomId
-      )}`;
+      if (!res.ok) throw new Error("Room creation failed");
+      const data = await res.json();
       setRoomId(data.room.roomId);
-      setShareUrl(url);
 
-      alert("✅ Room created successfully!");
+      alert("🎉 Room created successfully!");
     } catch (err) {
-      console.error("Error creating room:", err);
-      alert("Failed to create room");
+      console.error("Room creation error:", err);
+      alert("Failed to create room with payment.");
     } finally {
       setIsCreating(false);
     }
   };
 
-  // Join existing room
-  const handleJoin = () => {
-    if (!roomId.trim()) return alert("Enter a room ID");
-    router.push(`/jam/${encodeURIComponent(roomId.trim())}`);
-  };
-
-  // Copy share URL
-  const copyToClipboard = () => {
-    if (!shareUrl) return;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      alert("✅ Room URL copied!");
+  const viewHistory = () => {
+    openPopup({
+      chainId: SEPOLIA_CHAIN_ID,
+      address: PLATFORM_ADDRESS,
     });
   };
 
   return (
-    <div className="flex flex-col items-center justify-center bg-gray-900 text-white p-6 rounded-xl shadow-lg w-full max-w-lg">
-      <h1 className="text-4xl font-bold mb-6">🎵 FreeJam4U</h1>
-      <p className="text-gray-400 mb-6 text-center max-w-md">
-        Enter a room ID to join, or create a new jam room and share the link
-        with others.
+    <div className="flex flex-col items-center justify-center bg-gray-900 text-white p-6 rounded-xl shadow-lg w-full max-w-lg border border-fuchsia-700/30">
+      <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-fuchsia-400 to-indigo-400 bg-clip-text text-transparent">
+        🎧 DStream Room Creator (Sepolia)
+      </h1>
+      <p className="text-gray-400 text-center mb-4">
+        Pay <span className="text-green-400">$0.10 PYUSD</span> on Sepolia to
+        create your Jam Room.
       </p>
 
-      {/* Join Section */}
-      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md mb-4">
-        <input
-          type="text"
-          placeholder="Enter room ID"
-          value={roomId}
-          onChange={(e) => setRoomId(e.target.value)}
-          className="flex-1 p-3 rounded bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          onClick={handleJoin}
-          className="px-4 py-3 rounded bg-blue-600 hover:bg-blue-700 transition"
-        >
-          Join Room
-        </button>
-      </div>
+      <button
+        disabled={isCreating}
+        onClick={handleCreateRoom}
+        className={`px-6 py-3 rounded-lg font-semibold transition ${
+          isCreating
+            ? "bg-gray-700 cursor-not-allowed"
+            : "bg-purple-600 hover:bg-purple-700"
+        }`}
+      >
+        {isCreating ? "Processing Payment..." : "Create Room for $0.10"}
+      </button>
 
-      {/* Create Section */}
-      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md mb-4">
-        <button
-          disabled={isCreating}
-          onClick={handleCreateRoom}
-          className={`flex-1 px-4 py-3 rounded ${
-            isCreating ? "bg-gray-500" : "bg-green-600 hover:bg-green-700"
-          } transition`}
-        >
-          {isCreating ? "Creating..." : "Create New Room"}
-        </button>
-
-        {shareUrl && (
-          <button
-            onClick={copyToClipboard}
-            className="px-4 py-3 rounded bg-yellow-600 hover:bg-yellow-700 transition"
+      {txHash && (
+        <div className="mt-4 text-sm text-gray-300">
+          Transaction:{" "}
+          <a
+            href={`https://eth-sepolia.blockscout.com/tx/${txHash}`}
+            target="_blank"
+            className="text-blue-400 underline"
           >
-            Copy URL
-          </button>
-        )}
-      </div>
+            {txHash.slice(0, 10)}...
+          </a>
+        </div>
+      )}
 
-      {/* Share Link */}
-      {shareUrl && (
-        <p className="text-gray-300 text-sm break-all text-center">
-          Share this room URL:{" "}
-          <span className="font-mono text-yellow-400">{shareUrl}</span>
+      {roomId && (
+        <p className="mt-4 text-green-400">
+          ✅ Room Created: <span className="font-mono">{roomId}</span>
         </p>
       )}
 
-      <p className="mt-6 text-gray-500 text-sm max-w-md text-center">
-        Rooms are saved in the database. Anyone with the link can join your jam
-        session!
-      </p>
+      <button
+        onClick={viewHistory}
+        className="mt-6 px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded-lg text-sm"
+      >
+        View Payment History
+      </button>
     </div>
   );
 }
