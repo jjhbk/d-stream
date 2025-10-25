@@ -1,17 +1,30 @@
 {
-  "name": "hardhat",
+  "name": "build-with-pyusd",
+  "workspaces": [
+    "docs",
+    "frontend"
+  ],
   "version": "1.0.0",
-  "type": "module",
-  "devDependencies": {
-    "@nomicfoundation/hardhat-ignition": "^3.0.3",
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
-    "@types/node": "^22.18.12",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "hardhat": "^3.0.7",
-    "typescript": "~5.8.0",
-    "viem": "^2.38.3"
+  "description": "These docs are intended to help you get started with the PYUSD, PayPay's stablecoin.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
   },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
   "dependencies": {
+    "forge-std": "^1.1.2",
+    "hardhat": "^3.0.9",
+    "solady": "^0.1.26",
     "solmate": "^6.8.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^1.2.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.4.0",
+    "hardhat": "^2.22.0"
   }
 }

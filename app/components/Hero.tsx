@@ -189,8 +189,8 @@ function HeroContent() {
         </h1>
 
         <p className="mt-6 text-gray-300 text-lg md:text-2xl max-w-2xl mx-auto leading-relaxed backdrop-blur-sm bg-black/10 px-4 py-2 rounded-xl shadow-inner">
-          The world’s first decentralized streaming platform — create rooms,
-          stream, and support creators with on-chain payments.
+          The world’s first decentralized Jamming & streaming platform — create
+          rooms, stream, and support creators with on-chain payments.
         </p>
 
         {/* Embedded Room Creator */}

@@ -34,7 +34,7 @@ export default function Features() {
         transition={{ duration: 0.7 }}
         className="text-center text-5xl font-extrabold mb-20"
       >
-        Why <span className="text-fuchsia-400">StreamFi</span>?
+        Why <span className="text-fuchsia-400">DStream</span>?
       </motion.h2>
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
         {features.map((f, i) => (

@@ -37,4 +37,6 @@ next-env.d.ts
 /backend/node_modules
 /backend/.env
 /*.env
+/hardhat/cache
+/hardhat/dist
 /hardhat/node_modules
