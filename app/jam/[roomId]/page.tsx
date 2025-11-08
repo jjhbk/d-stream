@@ -16,6 +16,7 @@ import {
 } from "@blockscout/app-sdk";
 import { v4 as uuidv4 } from "uuid";
 import GroupChat from "@/app/components/GroupChat";
+import GroupVideoChat from "@/app/components/GroupVideoChat";
 
 interface WSMessage {
   type: "join" | "media-change" | "playback" | "seek" | "volume" | "sync-state"; // 👈 new message type for playback sync
@@ -109,8 +110,21 @@ export default function JamPage() {
   } = state;
 
   const SEPARATOR = " · ";
+  const [userId, setUserId] = useState<string>("");
 
-  // ============================================================
+  // 🧩 Generate or load persistent user ID
+  useEffect(() => {
+    // ✅ Only runs on the client side
+    if (typeof window !== "undefined") {
+      let storedId = localStorage.getItem("userId");
+      if (!storedId) {
+        storedId = uuidv4();
+        localStorage.setItem("userId", storedId);
+      }
+      setUserId(storedId);
+    }
+  }, []);
+  //======================================================
   //  🎵 LOAD ROOM + TRACKS FROM BACKEND
   // ============================================================
   const fetchRoom = async () => {
@@ -369,7 +383,7 @@ export default function JamPage() {
     }
   }, [sharedUrl]);
 
-  useEffect(() => {
+  /*useEffect(() => {
     const connectWallet = async () => {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -382,7 +396,7 @@ export default function JamPage() {
     };
     connectWallet();
   }, []);
-
+*/
   const fetchPlaylists = async () => {
     try {
       const res = await fetch(`${API_URL}/api/rooms/${roomId}/playlists`);
@@ -821,7 +835,13 @@ export default function JamPage() {
             <p className="text-gray-500 text-sm">No tracks yet.</p>
           )}
         </div>
-        <GroupChat wsRef={wsRef} roomId={roomId as string} />
+        <GroupVideoChat
+          wsRef={wsRef}
+          roomId={roomId as string}
+          userId={userId}
+        />
+
+        <GroupChat wsRef={wsRef} roomId={roomId as string} userId={userId} />
 
         {/* Duration */}
         <div className="text-center mt-4 text-sm text-gray-300">

@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 interface GroupChatProps {
   wsRef: React.MutableRefObject<WebSocket | null>;
   roomId: string;
+  userId: string;
 }
 
 interface ChatMessage {
@@ -16,29 +17,23 @@ interface ChatMessage {
   timestamp: number;
 }
 
-export default function GroupChat({ wsRef, roomId }: GroupChatProps) {
-  const [nickname, setNickname] = useState<string>(
-    () => localStorage.getItem("nickname") || ""
-  );
-  const [userId, setUserId] = useState<string>("");
+export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
+  const [nickname, setNickname] = useState<string>("");
+
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-
-  // 🧩 Generate or load persistent user ID
-  useEffect(() => {
-    let storedId = localStorage.getItem("userId");
-    if (!storedId) {
-      storedId = uuidv4();
-      localStorage.setItem("userId", storedId);
-    }
-    setUserId(storedId);
-  }, []);
 
   // 🧠 Auto-scroll on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedName = localStorage.getItem("nickname");
+      if (savedName) setNickname(savedName);
+    }
+  }, []);
 
   // 🛰️ Listen for incoming chat messages
   useEffect(() => {
