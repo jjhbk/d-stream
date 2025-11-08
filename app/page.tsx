@@ -18,7 +18,7 @@ export default function Page() {
       <FAQ />
 
       <footer className="mt-16 text-center text-gray-500 py-8 border-t border-gray-700">
-        © 2025 DStream — Decentralized, censorship-free streaming.
+        © 2025 FreeJam4U — Decentralized, censorship-free streaming.
       </footer>
     </main>
   );

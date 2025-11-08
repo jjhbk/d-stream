@@ -1,5 +1,5 @@
 {
-  "name": "dstream",
+  "name": "FreeJam4U",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -17,7 +17,8 @@
     "react-dom": "^19.2.0",
     "react-player": "^3.3.3",
     "screenfull": "^6.0.2",
-    "siwe": "^3.0.0"
+    "siwe": "^3.0.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",

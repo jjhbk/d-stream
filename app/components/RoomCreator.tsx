@@ -23,6 +23,7 @@ function CreateRoomComponent() {
   const [isCreating, setIsCreating] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const userAddress = "0x4eF27B6eb11b645139596a0b5E27e4B1662b0EC5";
 
   const { openTxToast } = useNotification();
   const { openPopup } = useTransactionPopup();
@@ -30,7 +31,7 @@ function CreateRoomComponent() {
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "https://freejam4u.onrender.com";
 
-  const generateRoomId = (length = 12) => {
+  const generateRoomId = (length = 36) => {
     const chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     return Array.from(
@@ -41,7 +42,7 @@ function CreateRoomComponent() {
 
   const handleCreateRoom = async () => {
     try {
-      if (!window.ethereum) return alert("Please install MetaMask");
+      /*  if (!window.ethereum) return alert("Please install MetaMask");
       setIsCreating(true);
 
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -54,7 +55,6 @@ function CreateRoomComponent() {
       }
 
       const signer = await provider.getSigner();
-      const userAddress = await signer.getAddress();
       const contract = new ethers.Contract(PYUSD_SEPOLIA, erc20Abi, signer);
 
       const decimals = await contract.decimals();
@@ -69,11 +69,11 @@ function CreateRoomComponent() {
 
       await tx.wait();
       console.log(`✅ Payment complete: ${tx.hash}`);
-
+*/
       // --- Step 2: Create Room ---
       const newRoomId = generateRoomId();
       const title =
-        prompt("Enter room title:", "My DStream Jam Room") || "Untitled Room";
+        prompt("Enter room title:", "My FreeJam4U Jam Room") || "Untitled Room";
 
       const res = await fetch(`${API_URL}/api/rooms`, {
         method: "POST",
@@ -82,7 +82,7 @@ function CreateRoomComponent() {
           roomId: newRoomId,
           creatorAddress: userAddress,
           title,
-          paymentTxHash: tx.hash,
+          paymentTxHash: "",
         }),
       });
 
@@ -109,7 +109,7 @@ function CreateRoomComponent() {
   return (
     <div className="flex flex-col items-center justify-center bg-gray-900 text-white p-6 rounded-xl shadow-lg w-full max-w-lg border border-fuchsia-700/30">
       <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-fuchsia-400 to-indigo-400 bg-clip-text text-transparent">
-        🎧 DStream Room Creator (Sepolia)
+        🎧 FreeJam4U Room Creator (Sepolia)
       </h1>
       <p className="text-gray-400 text-center mb-4">
         Pay <span className="text-green-400">$0.10 PYUSD</span> on Sepolia to

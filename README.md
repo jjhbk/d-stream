@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="./public/cover-image.png" alt="DStream Cover" width="100%" />
+  <img src="./public/cover-image.png" alt="FreeJam4U Cover" width="100%" />
   <br/><br/>
-  <img src="./public/logo.png" alt="DStream Logo" width="128" height="128" />
-  <h1>🎬 DStream — Decentralized Streaming & Tipping Platform</h1>
+  <img src="./public/logo.png" alt="FreeJam4U Logo" width="128" height="128" />
+  <h1>🎬 FreeJam4U — Decentralized Streaming & Tipping Platform</h1>
   <p>
     <strong>Watch. Pay. Own.</strong><br/>
     The world’s first decentralized platform for real-time music & movie streaming powered by crypto micropayments.
@@ -17,9 +17,9 @@
 
 ---
 
-## 🧠 About DStream
+## 🧠 About FreeJam4U
 
-**DStream** is a decentralized collaborative streaming and tipping platform built for creators, musicians, and film lovers.  
+**FreeJam4U** is a decentralized collaborative streaming and tipping platform built for creators, musicians, and film lovers.  
 It merges **real-time media synchronization**, **crypto tipping**, and **transparent blockchain analytics** into one powerful app.
 
 - 🎧 Create or join live jam sessions or movie watch rooms.
@@ -177,7 +177,7 @@ Use MetaMask to send tips directly in the app.
 
 ## ⚡ Blockscout SDK Integration
 
-DStream uses:
+FreeJam4U uses:
 
 openTxToast() → real-time transaction success popups
 

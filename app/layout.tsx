@@ -6,7 +6,7 @@ import { TransactionPopupProvider } from "@blockscout/app-sdk";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Dstream",
+  title: "FreeJam4U",
   description: "A decentralized Streaming platform!",
 };
 

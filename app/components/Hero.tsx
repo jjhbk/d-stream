@@ -33,7 +33,7 @@ function HeroContent() {
   const { openTxToast } = useNotification();
   const { openPopup } = useTransactionPopup();
 
-  const generateRoomId = (length = 10) => {
+  const generateRoomId = (length = 32) => {
     const chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     return Array.from(
@@ -87,7 +87,7 @@ function HeroContent() {
     try {
       setIsCreating(true);
 
-      if (!window.ethereum) {
+      /* if (!window.ethereum) {
         alert("Please install MetaMask");
         setIsCreating(false);
         return;
@@ -108,11 +108,11 @@ function HeroContent() {
       const tx = await contract.transfer(PLATFORM_ADDRESS, amount);
       await openTxToast("11155111", tx.hash);
       await tx.wait();
-
+*/
       // Step 2: Create Room after payment confirmation
       const newRoomId = generateRoomId();
       const title =
-        prompt("Enter a title for your stream:", "My DStream Room") ||
+        prompt("Enter a title for your stream:", "My FreeJam4U Room") ||
         "Untitled Stream";
 
       const response = await fetch(`${API_URL}/api/rooms`, {
@@ -120,9 +120,9 @@ function HeroContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomId: newRoomId,
-          creatorAddress: address,
+          creatorAddress: PLATFORM_ADDRESS,
           title,
-          paymentTxHash: tx.hash,
+          paymentTxHash: "txHash",
         }),
       });
 
@@ -185,7 +185,7 @@ function HeroContent() {
         className="relative z-10 px-6 flex flex-col items-center"
       >
         <h1 className="text-5xl sm:text-7xl md:text-8xl font-extrabold bg-gradient-to-r from-fuchsia-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(168,85,247,0.3)] leading-tight">
-          DStream Platform
+          FreeJam4U
         </h1>
 
         <p className="mt-6 text-gray-300 text-lg md:text-2xl max-w-2xl mx-auto leading-relaxed backdrop-blur-sm bg-black/10 px-4 py-2 rounded-xl shadow-inner">
@@ -204,8 +204,8 @@ function HeroContent() {
             🎥 Start Streaming
           </h2>
           <p className="text-gray-400 mb-6 text-center">
-            Pay <span className="text-green-400">$0.10 PYUSD</span> to start a
-            decentralized jam room on Sepolia.
+            {/*Pay <span className="text-green-400">$0.10 PYUSD</span> to start a
+            decentralized jam room on Sepolia.*/}
           </p>
 
           {/* Join */}
@@ -234,7 +234,7 @@ function HeroContent() {
                 isCreating ? "bg-gray-600" : "bg-green-600 hover:bg-green-700"
               }`}
             >
-              {isCreating ? "Processing..." : "Create Room for $0.10"}
+              {isCreating ? "Processing..." : "Create Room"}
             </button>
 
             {shareUrl && (
