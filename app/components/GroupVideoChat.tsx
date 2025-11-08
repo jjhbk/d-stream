@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 interface GroupVideoChatProps {
   wsRef: React.MutableRefObject<WebSocket | null>;
   roomId: string;
-  userId: string; // comes from JamPage
+  userId: string;
 }
 
 interface StreamMap {
@@ -34,18 +34,20 @@ export default function GroupVideoChat({
   const audioAnalyser = useRef<AnalyserNode | null>(null);
   const audioDataArray = useRef<Uint8Array | null>(null);
 
+  // 🔊 Send signaling messages to backend
   const sendMessage = (msg: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ ...msg, roomId }));
     }
   };
 
-  // 🧩 Create Peer Connection
+  // 🧩 Create PeerConnection
   const createPeerConnection = (peerId: string, initiator: boolean) => {
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
+    // Attach local tracks
     localStream.current?.getTracks().forEach((track) => {
       pc.addTrack(track, localStream.current!);
     });
@@ -80,65 +82,74 @@ export default function GroupVideoChat({
     return pc;
   };
 
-  // 🧠 Handle signaling messages
+  // 🧠 Handle incoming WebSocket messages
   useEffect(() => {
     if (!wsRef.current) return;
     const ws = wsRef.current;
 
-    ws.onmessage = async (ev) => {
-      const data = JSON.parse(ev.data);
-      if (data.roomId !== roomId) return;
+    const handleMessage = async (ev: MessageEvent) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.roomId !== roomId) return;
 
-      switch (data.type) {
-        // When someone joins, existing peers respond with "new-peer"
-        case "join-video":
-          if (data.userId !== userId) {
-            sendMessage({ type: "new-peer", to: data.userId, from: userId });
-          }
-          break;
+        switch (data.type) {
+          // When someone joins, existing peers respond
+          case "join-video":
+            if (data.userId !== userId) {
+              sendMessage({ type: "new-peer", to: data.userId, from: userId });
+            }
+            break;
 
-        // The joining peer receives "new-peer" and starts offers
-        case "new-peer":
-          if (data.to === userId) {
-            createPeerConnection(data.from, true);
-          }
-          break;
+          // New peer initiates an offer
+          case "new-peer":
+            if (data.to === userId) createPeerConnection(data.from, true);
+            break;
 
-        case "offer": {
-          if (data.to !== userId) return;
-          const pc = createPeerConnection(data.from, false);
-          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          sendMessage({
-            type: "answer",
-            to: data.from,
-            from: userId,
-            sdp: answer,
-          });
-          break;
-        }
-
-        case "answer": {
-          if (data.to !== userId) return;
-          const pc = peers[data.from];
-          if (pc)
+          case "offer": {
+            if (data.to !== userId) return;
+            const pc = createPeerConnection(data.from, false);
             await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-          break;
-        }
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            sendMessage({
+              type: "answer",
+              to: data.from,
+              from: userId,
+              sdp: answer,
+            });
+            break;
+          }
 
-        case "ice-candidate": {
-          if (data.to !== userId) return;
-          const pc = peers[data.from];
-          if (pc && data.candidate)
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-          break;
+          case "answer": {
+            if (data.to !== userId) return;
+            const pc = peers[data.from];
+            if (pc && !pc.currentRemoteDescription) {
+              await pc.setRemoteDescription(
+                new RTCSessionDescription(data.sdp)
+              );
+            }
+            break;
+          }
+
+          case "ice-candidate": {
+            if (data.to !== userId) return;
+            const pc = peers[data.from];
+            if (pc && data.candidate) {
+              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+            break;
+          }
         }
+      } catch (err) {
+        console.error("Video signaling error:", err);
       }
     };
-  }, [wsRef.current, peers, roomId, userId]);
 
-  // 🎤 Join room with camera & mic
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
+  }, [roomId, userId, peers, wsRef]);
+
+  // 🎤 Join camera/mic
   const joinRoom = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -146,12 +157,9 @@ export default function GroupVideoChat({
         audio: true,
       });
       localStream.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      // Speaker detection setup
+      // Setup active speaker detection
       const audioCtx = new AudioContext();
       const src = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
@@ -180,7 +188,7 @@ export default function GroupVideoChat({
     }
   };
 
-  // 🎚️ Mute / Unmute
+  // 🎚️ Mic toggle
   const toggleMic = () => {
     const track = localStream.current?.getAudioTracks()[0];
     if (track) {
@@ -206,12 +214,14 @@ export default function GroupVideoChat({
         video: true,
       });
       const screenTrack = screenStream.getVideoTracks()[0];
+
       Object.values(peers).forEach((pc) => {
         const sender = pc.getSenders().find((s) => s.track?.kind === "video");
         sender?.replaceTrack(screenTrack);
       });
 
       if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
+
       screenTrack.onended = () => {
         const camTrack = localStream.current?.getVideoTracks()[0];
         Object.values(peers).forEach((pc) => {
@@ -222,6 +232,7 @@ export default function GroupVideoChat({
           localVideoRef.current.srcObject = localStream.current!;
         setScreenSharing(false);
       };
+
       setScreenSharing(true);
     } catch (err) {
       console.error("Screen share failed:", err);
@@ -295,7 +306,7 @@ export default function GroupVideoChat({
               </p>
             </div>
 
-            {/* Remote participants */}
+            {/* Remote peers */}
             {Object.entries(streams).map(([peerId, stream]) => (
               <div
                 key={peerId}

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
 
 interface GroupChatProps {
   wsRef: React.MutableRefObject<WebSocket | null>;
@@ -10,7 +9,7 @@ interface GroupChatProps {
 }
 
 interface ChatMessage {
-  id: string; // message id
+  id: string;
   senderId: string;
   nickname: string;
   message: string;
@@ -19,27 +18,35 @@ interface ChatMessage {
 
 export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
   const [nickname, setNickname] = useState<string>("");
-
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  // 🧠 Auto-scroll on new messages
+  // Auto-scroll on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  // Load nickname from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedName = localStorage.getItem("nickname");
-      if (savedName) setNickname(savedName);
+      const saved = localStorage.getItem("nickname");
+      if (saved) setNickname(saved);
     }
   }, []);
 
-  // 🛰️ Listen for incoming chat messages
+  // 🛰️ Wait until WebSocket becomes available, then attach listener
   useEffect(() => {
-    if (!wsRef.current) return;
+    const interval = setInterval(() => {
+      if (wsRef.current) {
+        attachMessageListener(wsRef.current);
+        clearInterval(interval);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [roomId]);
 
-    const ws = wsRef.current;
+  const attachMessageListener = (ws: WebSocket) => {
     const handleMessage = (ev: MessageEvent) => {
       try {
         const data = JSON.parse(ev.data);
@@ -48,7 +55,7 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
             ...prev,
             {
               id: crypto.randomUUID(),
-              senderId: data.senderId || "unknown",
+              senderId: data.senderId,
               nickname: data.nickname || "Anonymous",
               message: data.message,
               timestamp: data.timestamp || Date.now(),
@@ -56,15 +63,20 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
           ]);
         }
       } catch (err) {
-        console.error("Chat message error:", err);
+        console.error("Chat parse error:", err);
       }
     };
 
     ws.addEventListener("message", handleMessage);
-    return () => ws.removeEventListener("message", handleMessage);
-  }, [wsRef.current, roomId]);
+    console.log("✅ Chat listener attached for", roomId);
 
-  // 📨 Send message via WebSocket
+    // cleanup
+    return () => {
+      ws.removeEventListener("message", handleMessage);
+    };
+  };
+
+  // 📨 Send chat message
   const sendChatMessage = () => {
     if (!chatInput.trim()) return;
 
@@ -77,11 +89,15 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
       timestamp: Date.now(),
     };
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(msg));
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+      console.log("📤 Sent message:", msg);
+    } else {
+      console.warn("⚠️ WebSocket not ready to send message");
     }
 
-    // Show message immediately for sender
+    // Optimistic local render
     setChatMessages((prev) => [
       ...prev,
       {
@@ -96,7 +112,7 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
     setChatInput("");
   };
 
-  // 🎨 Utility: assign user color by UUID hash
+  // 🎨 Assign color by sender ID
   const getUserColor = (senderId: string) => {
     const hash = senderId
       .split("")
@@ -124,7 +140,7 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
         <span className="text-xs text-gray-400">Visible to everyone</span>
       </div>
 
-      {/* Messages */}
+      {/* Chat area */}
       <div className="flex flex-col h-[300px] overflow-y-auto bg-gray-800/60 rounded-lg p-4 border border-gray-700 mb-4 space-y-2">
         {chatMessages.map((m) => (
           <div
@@ -153,7 +169,7 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input box */}
+      {/* Input */}
       <div className="flex gap-3">
         <input
           type="text"
@@ -172,8 +188,9 @@ export default function GroupChat({ wsRef, roomId, userId }: GroupChatProps) {
       </div>
 
       <div className="text-xs text-gray-500 mt-3 text-center">
-        🪪 You are <span className="text-fuchsia-400">{userId.slice(0, 8)}</span>{" "}
-        (your unique ID, stored locally)
+        🪪 You are{" "}
+        <span className="text-fuchsia-400 font-mono">{userId.slice(0, 8)}</span>{" "}
+        (unique ID)
       </div>
     </div>
   );

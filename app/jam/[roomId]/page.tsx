@@ -160,15 +160,14 @@ export default function JamPage() {
     const ws = new WebSocket(`${WS_URL}?roomId=${roomId}`);
     wsRef.current = ws;
 
-    ws.onopen = () => {
+    const handleOpen = () => {
       console.log("✅ WebSocket connected");
       ws.send(JSON.stringify({ type: "join", roomId }));
     };
 
-    ws.onmessage = (ev) => {
+    const handleMessage = (ev: MessageEvent) => {
       try {
         const data = JSON.parse(ev.data) as WSMessage;
-
         if (data.roomId !== roomId) return;
 
         switch (data.type) {
@@ -188,18 +187,15 @@ export default function JamPage() {
             if (typeof data.volume === "number") applyRemoteVolume(data.volume);
             break;
 
-          case "sync-state": // 👈 new unified sync event
+          case "sync-state":
             if (data.url) {
-              // Load the current track from the server
               loadMedia(data.url, false, true);
 
-              // Apply seek if provided
               if (typeof data.time === "number") {
-                // small delay ensures ReactPlayer is ready
+                // small delay ensures player is ready
                 setTimeout(() => applyRemoteSeek(data.time!), 800);
               }
 
-              // Optionally auto-play to keep in sync
               setTimeout(() => applyRemotePlayback(true), 1000);
             }
             break;
@@ -209,9 +205,17 @@ export default function JamPage() {
       }
     };
 
-    ws.onclose = () => console.log("❌ WebSocket closed");
+    const handleClose = () => console.log("❌ WebSocket closed");
+
+    // ✅ Use addEventListener so other components can also listen safely
+    ws.addEventListener("open", handleOpen);
+    ws.addEventListener("message", handleMessage);
+    ws.addEventListener("close", handleClose);
 
     return () => {
+      ws.removeEventListener("open", handleOpen);
+      ws.removeEventListener("message", handleMessage);
+      ws.removeEventListener("close", handleClose);
       ws.close();
       wsRef.current = null;
     };
